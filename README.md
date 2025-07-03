@@ -162,14 +162,3 @@ Replace `anonymous_person_XXXXX` with the actual ID shown in the topic list.
 ros2 topic echo /intents
 ```
 
-## Known Issues
-
-Some ROS4HRI packages have memory corruption issues:
-- `hri_face_body_matcher`: Memory corruption when launched
-- `hri_face_identification`: Memory corruption when loading face database
-
-These packages are not required for basic engagement detection and are excluded from the recommended workflow.
-
-## License
-
-This project is licensed under the Apache License 2.0.
