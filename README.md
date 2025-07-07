@@ -162,3 +162,92 @@ Replace `anonymous_person_XXXXX` with the actual ID shown in the topic list.
 ros2 topic echo /intents
 ```
 
+
+
+# Configuración para Tiago Robot
+
+Esta sección contiene la configuración específica para ejecutar el sistema de detección de engagement en el robot Tiago.
+
+## Archivo de Configuración
+
+Crea un archivo de configuración en `~/.pal/config/ros4hri-tutorials.yml` con el siguiente contenido:
+
+```yaml
+/hri_face_detect:
+   remappings:
+      image: /head_front_camera/rgb/image_raw
+      camera_info: /head_front_camera/rgb/camera_info
+   ros__parameters:
+      image_compressed: false
+      camera_frame_id: head_front_camera_color_optical_frame
+      filtering_frame: base_footprint
+
+/hri_fullbody:
+   remappings:
+      image: /head_front_camera/rgb/image_raw
+      camera_info: /head_front_camera/rgb/camera_info
+   ros__parameters:
+      image_compressed: false
+      camera_frame_id: head_front_camera_color_optical_frame
+
+/hri_engagement:
+  ros__parameters:
+    reference_frame: "base_footprint"  # Punto de referencia del robot, alineado con la dirección de la mirada
+    max_distance: 4.0  # Aumentado a 4 metros para mayor alcance
+    field_of_view: 80.0  # Aumentado a 80 grados para un campo de atención más amplio
+    engagement_threshold: 0.4  # Reducido para hacer más fácil considerar a alguien como "engaged"
+    observation_window: 5.0  # Reducido para respuesta más rápida a cambios
+    rate: 10.0  # Mantenido como en la documentación
+
+/hri_person_manager:
+  ros__parameters:
+    reference_frame: map
+    robot_reference_frame: base_footprint
+    use_auto_association: true
+    association_threshold: 0.4
+    face_timeout: 2.0
+    body_timeout: 2.0
+```
+
+## Lanzamiento del Sistema en Tiago
+
+Ejecuta los siguientes comandos en orden, cada uno en una terminal separada:
+
+### 1. Detección Facial
+```bash
+ros2 launch hri_face_detect face_detect.launch.py \
+  filtering_frame:=base_footprint \
+  rgb_camera:=/head_front_camera/rgb/image_raw \
+  camera_frame_id:=head_front_camera_color_optical_frame
+```
+
+### 2. Detección Corporal
+```bash
+ros2 launch hri_fullbody hri_fullbody.launch.py \
+  rgb_camera:=/head_front_camera/rgb/image_raw \
+  camera_frame_id:=head_front_camera_color_optical_frame
+```
+
+### 3. Configuración de Transformadas
+```bash
+ros2 run tf2_ros static_transform_publisher \
+  --frame-id head_front_camera_color_optical_frame \
+  --child-frame-id default_cam
+```
+
+### 4. Gestor de Personas
+```bash
+ros2 launch hri_person_manager person_manager.launch.py \
+  robot_reference_frame:=base_footprint \
+  reference_frame:=map
+```
+
+### 5. Detección de Engagement
+```bash
+ros2 launch hri_engagement hri_engagement.launch.py
+```
+
+### 6. Cambio LEDs
+```bash
+ros2 launch engagement_action robot_led_control.launch.py 
+```

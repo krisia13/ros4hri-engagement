@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'engagement_action = engagement_action.engagement_action_node:main',
+            'led_control = engagement_action.led_control_node:main',
         ],
     },
 )
