@@ -11,6 +11,14 @@
   <depend>std_msgs</depend>
   <depend>hri_msgs</depend>
   <depend>pal_led_msgs</depend>
+  <depend>text_to_speech_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>audio_common_msgs</depend> 
+  <depend>sensor_msgs</depend>       
+  <depend>nav2_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_py</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

@@ -23,8 +23,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'engagement_action = engagement_action.engagement_action_node:main',
+            'tts = engagement_action.tts_node:main',
             'led_control = engagement_action.led_control_node:main',
+            'engagement_navigation_node = engagement_action.navigation_node:main',
+            'voice_interaction_node = engagement_action.voice_interaction_node:main',
         ],
     },
 )
