@@ -27,6 +27,7 @@ setup(
             'led_control = engagement_action.led_control_node:main',
             'engagement_navigation_node = engagement_action.navigation_node:main',
             'voice_interaction_node = engagement_action.voice_interaction_node:main',
+            'vosk_asr_node = engagement_action.vosk_asr_node:main',
         ],
     },
 )

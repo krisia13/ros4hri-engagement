@@ -44,7 +44,7 @@ class EngagementNavigationNode(Node):
         
         # Parámetros
         self.declare_parameter('pause_duration', 5.0)
-        self.declare_parameter('engagement_threshold', 2)
+        self.declare_parameter('engagement_threshold', 2.0)
         self.declare_parameter('loop_navigation', True)
         self.declare_parameter('wait_between_waypoints', 3.0)
         

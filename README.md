@@ -254,7 +254,7 @@ ros2 run tf2_ros static_transform_publisher \
 ```bash
 ros2 launch hri_person_manager person_manager.launch.py \
   robot_reference_frame:=base_footprint \
-  reference_frame:=map
+  reference_frame:=base_footprint
 ```
 
 ### 5. Detección de Engagement
@@ -437,3 +437,23 @@ Este launch file incluye automáticamente:
 - **voice_interaction_node**: Nodo de procesamiento de voz e interacción
 
 **Nota**: Ya no es necesario ejecutar `ros2 run respeaker_ros respeaker_node` por separado, ya que está incluido en el launch file.
+
+
+Para comprobar el reconocimiento de voz en tu sistema, sigue estos pasos:
+
+1. **Ejecuta el nodo que publica el audio del micrófono:**
+   ```sh
+   ros2 run respeaker_ros respeaker_node
+   ```
+
+2. **Ejecuta el nodo que convierte el audio en texto usando Vosk:**
+   ```sh
+   ros2 run engagement_action vosk_asr_node
+   ```
+
+3. **Visualiza el texto reconocido en tiempo real:**
+   ```sh
+   ros2 topic echo /voz_texto
+   ```
+
+Así podrás ver en la terminal el texto que reconoce el sistema cuando hablas cerca del micrófono.

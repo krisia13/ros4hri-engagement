@@ -1,0 +1,40 @@
+<root BTCPP_format="4">
+    <BehaviorTree ID="TiagoMainTree">
+        <Fallback name="MainSelector">
+
+            <!-- Engagement: máxima prioridad -->
+            <Sequence name="EngagementHandler">
+                <IsPersonEngaged/>
+                <SetEngagementActive/>
+                <SpeakGreetingOnce/>
+            </Sequence>
+
+            <!-- Fin de engagement -->
+            <Sequence name="EndEngagementHandler">
+                <IsEngagementEnding/>
+                <SetEngagementInactive/>
+            </Sequence>
+
+            <Sequence name="NavigationLoop">
+                <IsNotEngagementActive/>
+                <IsNavigationAllowed/>
+                <NavigateToWaypoint/>
+                <AlwaysSuccess/>
+            </Sequence>
+
+            <!-- Nueva secuencia para escuchar y girar si oye "hola" -->
+            <Sequence name="VoiceInteractionLoop">
+                <IsNotEngagementActive/>
+                <IsVoiceDetected/>        
+                <TurnToVoiceDirection/>    
+                <AlwaysSuccess/>
+            </Sequence>
+
+          
+            <!-- Idle -->
+            <Sequence name="IdleHandler">
+                <AlwaysSuccess/>
+            </Sequence>
+        </Fallback>
+    </BehaviorTree>
+</root>
