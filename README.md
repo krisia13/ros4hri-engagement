@@ -457,3 +457,34 @@ Para comprobar el reconocimiento de voz en tu sistema, sigue estos pasos:
    ```
 
 Así podrás ver en la terminal el texto que reconoce el sistema cuando hablas cerca del micrófono.
+
+--- 
+
+Para lanzar todo el sistema correctamente, ejecuta estos comandos en **cuatro terminales diferentes** (uno por cada proceso):
+
+
+---
+
+### **Orden recomendado de lanzamiento (cada uno en su terminal):**
+
+1. **Navegación Nav2:**
+   ```sh
+   ros2 launch tiago_navigation tiago_nav2.launch.py
+   ```
+
+2. **Texto a voz:**
+   ```sh
+   ros2 launch text_to_speech text_to_speech.launch.py
+   ```
+
+3. **Reconocimiento de voz (ASR):**
+   ```sh
+   ros2 run engagement_action vosk_asr_node
+   ```
+
+4. **Árbol de comportamiento:**
+   ```sh
+   ros2 launch tiago_behavior_tree_cpp tiago_behavior_tree.launch.py
+   ```
+
+---
