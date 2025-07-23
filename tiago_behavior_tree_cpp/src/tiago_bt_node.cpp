@@ -319,7 +319,8 @@ void TiagoBTNode::setupSubscriptions()
         "/voz_texto", 10,
         [this](const std_msgs::msg::String::SharedPtr msg) {
             std::string texto = msg->data;
-            bool detected = texto.find("hola") != std::string::npos;
+            bool detected = texto.find("hola") != std::string::npos ||
+                            texto.find("ayuda") != std::string::npos;
             tree_.blackboard_stack.front()->set("voice_detected", detected);
     
             if (detected) {
@@ -555,8 +556,9 @@ BT::NodeStatus TiagoBTNode::turnToVoiceDirection(BT::TreeNode& /*self*/)
             if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
                 RCLCPP_INFO(get_logger(), "✅ Finished turning to voice direction");
                 auto msg = std_msgs::msg::String();
-                msg.data = "I am looking at you now. Did you want something?";
+                msg.data = "Hello. Did you want something?";
                 speech_pub_->publish(msg);
+                rclcpp::sleep_for(std::chrono::seconds(3));
             } else {
                 RCLCPP_WARN(get_logger(), "❌ Failed turning to voice direction");
             }
