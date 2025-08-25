@@ -5,10 +5,21 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
+    """Genera la descripción de lanzamiento para el sistema de comportamiento de Tiago.
+
+    Secuencia principal:
+      - Detección facial
+      - Detección corporal
+      - Publicación de transformadas estáticas
+      - Gestión de personas
+      - Engagement
+      - Control de LEDs
+      - Extensiones: TTS, navegación, interacción por voz
+      - Coordinador del árbol de comportamiento
+    Returns:
+        LaunchDescription: Descripción de lanzamiento con todos los nodos y acciones.
+    """
     return LaunchDescription([
-        
-        # SECUENCIA CORE (tu método manual)
-        
         # 0s: Detección Facial
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
@@ -36,7 +47,7 @@ def generate_launch_description():
             )
         ]),
         
-        # 6s: Transformadas
+        # 6s: Publicación de transformadas estáticas
         TimerAction(period=6.0, actions=[
             ExecuteProcess(
                 cmd=['ros2', 'run', 'tf2_ros', 'static_transform_publisher',
@@ -70,7 +81,7 @@ def generate_launch_description():
             )
         ]),
         
-        # 15s: LEDs
+        # 15s: Control de LEDs
         TimerAction(period=15.0, actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
@@ -80,20 +91,8 @@ def generate_launch_description():
             )
         ]),
         
-        # EXTENSIONES (tus nodos adicionales)
-        
-        # # 18s: Text to Speech
-        # TimerAction(period=18.0, actions=[
-        #     IncludeLaunchDescription(
-        #         PythonLaunchDescriptionSource([
-        #             get_package_share_directory('text_to_speech'),
-        #             '/launch/text_to_speech.launch.py'
-        #         ])
-        #     )
-        # ]),
-        
-        # 21s: TTS Node
-        TimerAction(period=21.0, actions=[
+        # 18s: Nodo TTS (Text to Speech)
+        TimerAction(period=18.0, actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
                     get_package_share_directory('engagement_action'),
@@ -102,18 +101,8 @@ def generate_launch_description():
             )
         ]),
         
-        # # 24s: Navigation
-        # TimerAction(period=24.0, actions=[
-        #     IncludeLaunchDescription(
-        #         PythonLaunchDescriptionSource([
-        #             get_package_share_directory('engagement_action'),
-        #             '/launch/navigation_node.launch.py'
-        #         ])
-        #     )
-        # ]),
-        
-        # 27s: Voice Interaction
-        TimerAction(period=27.0, actions=[
+        # 21s: Interacción por voz
+        TimerAction(period=21.0, actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
                     get_package_share_directory('engagement_action'),
@@ -122,8 +111,8 @@ def generate_launch_description():
             )
         ]),
         
-        # 30s: BT Coordinador (cuando TODO esté funcionando)
-        TimerAction(period=30.0, actions=[
+        # 24s: Coordinador del árbol de comportamiento (BT)
+        TimerAction(period=24.0, actions=[
             Node(
                 package='tiago_behavior_tree_cpp',
                 executable='tiago_behavior_tree_cpp_node',

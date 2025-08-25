@@ -1,5 +1,11 @@
 #include "tiago_behavior_tree_cpp/tiago_bt_node.hpp"
+#include <behaviortree_cpp_v3/loggers/bt_zmq_publisher.h>
 
+/**
+ * @brief Constructor de TiagoBTNode.
+ *
+ * Inicializa parámetros, TF2, Nav2, publishers, nodos BT, suscripciones y el timer principal.
+ */
 TiagoBTNode::TiagoBTNode() : Node("tiago_bt_coordinator")
 {
     RCLCPP_INFO(get_logger(), "🚀 Iniciando TiagoBTNode...");
@@ -69,6 +75,11 @@ TiagoBTNode::TiagoBTNode() : Node("tiago_bt_coordinator")
     RCLCPP_INFO(get_logger(), "🔄 BT ejecutándose a %.1f Hz", tick_rate_);
 }
 
+/**
+ * @brief Destructor de TiagoBTNode.
+ *
+ * Cancela el timer si está activo.
+ */
 TiagoBTNode::~TiagoBTNode()
 {
     RCLCPP_INFO(get_logger(), "🛑 Cerrando TiagoBTNode...");
@@ -77,14 +88,13 @@ TiagoBTNode::~TiagoBTNode()
     }
 }
 
-// =================================================================
-// REGISTER NODES
-// =================================================================
+/**
+ * @brief Registra los nodos personalizados en el BehaviorTreeFactory.
+ */
 void TiagoBTNode::registerNodes()
 {
     RCLCPP_INFO(get_logger(), "📝 Registrando nodos BT con sintaxis v3...");
 
-    
     // =================================================================
     // CONDITION NODES
     // =================================================================
@@ -154,7 +164,7 @@ void TiagoBTNode::registerNodes()
         });
     
     // =================================================================
-    // ACTION NODES - LED & LOGGING
+    // ACTION NODES - LOGGING
     // =================================================================
     
     factory_.registerSimpleAction("LogEngagementState", 
@@ -165,9 +175,12 @@ void TiagoBTNode::registerNodes()
     RCLCPP_INFO(get_logger(), "✅ NODOS registrados:");
 }
 
-// =================================================================
-// LOAD TREE
-// =================================================================
+/**
+ * @brief Carga el árbol de comportamiento desde archivo XML.
+ *
+ * Si el archivo no existe, lanza una excepción y no carga el árbol.
+ * El error se captura y se muestra en el log.
+ */
 void TiagoBTNode::loadTree()
 {
     RCLCPP_INFO(get_logger(), "🌳 Cargando árbol BT: %s", tree_file_.c_str());
@@ -178,7 +191,6 @@ void TiagoBTNode::loadTree()
         
         RCLCPP_WARN(get_logger(), "📁 Ruta completa: %s", tree_path.c_str());
         
-        // Verificar que el archivo existe
         std::ifstream file_check(tree_path);
         if (!file_check.good()) {
             RCLCPP_ERROR(get_logger(), "❌ ARCHIVO NO ENCONTRADO: %s", tree_path.c_str());
@@ -189,68 +201,21 @@ void TiagoBTNode::loadTree()
         tree_ = factory_.createTreeFromFile(tree_path);
         
         RCLCPP_WARN(get_logger(), "✅ Árbol BT cargado desde XML");
+
+        static std::unique_ptr<BT::PublisherZMQ> groot_publisher;
+        groot_publisher = std::make_unique<BT::PublisherZMQ>(tree_, 25, 1666, 1667);
+        RCLCPP_INFO(get_logger(), "🌐 Groot2 PublisherZMQ activo en puerto 1666/1667");
     }
     catch (const std::exception& e) {
         RCLCPP_ERROR(get_logger(), "❌ Error cargando árbol: %s", e.what());
-        RCLCPP_INFO(get_logger(), "🔧 Usando árbol por defecto...");
-        
-        // Árbol simplificado por defecto
-        std::string xml_text = R"(
-            <root BTCPP_format="4">
-                <BehaviorTree ID="TiagoMainTree">
-                    <ReactiveSequence name="MainBehavior">
-                        
-                        <!-- ENGAGEMENT: Entrada NUEVA -->
-                        <Sequence name="NewEngagementHandler">
-                            <IsPersonEngaged name="check_engagement"/>
-                            <IsNewEngagementEntry name="check_if_new"/>
-                            <SetEngagementActive name="mark_active"/>
-                            <SpeakGreetingOnce name="greeting"/>
-                            <LogEngagementState name="log_engagement"/>
-                        </Sequence>
-                        
-                        <!-- ENGAGEMENT: Salida -->
-                        <Sequence name="EngagementExitHandler">
-                            <IsEngagementEnding name="check_ending"/>
-                            <SetEngagementInactive name="mark_inactive"/>
-                            <LogEngagementState name="log_exit"/>
-                        </Sequence>
-                        
-                        <!-- VOZ: Solo si NO hay engagement -->
-                        <Sequence name="VoiceHandler">
-                            <IsVoiceDetected name="check_voice"/>
-+                            <TurnToVoiceDirection name="turn_to_voice"/>
-                            <SayVoiceResponse name="voice_response"/>
-                            <LogEngagementState name="log_voice"/>
-                            <AlwaysSuccess/>
-                        </Sequence>
-                        
-                        <!-- NAVEGACIÓN: Solo si NO hay engagement -->
-                        <Sequence name="NavigationHandler">
-                            <IsNavigationAllowed name="check_nav_allowed"/>
-                            <NavigateToWaypoint name="navigate"/>
-++                            <LogEngagementState name="log_navigation"/>
-                        </Sequence>
-                        
-                        <!-- IDLE: Por defecto -->
-                        <Sequence name="IdleHandler">
-                            <LogEngagementState name="log_idle"/>
-                            <AlwaysSuccess/>
-                        </Sequence>
-                        
-                    </ReactiveSequence>
-                </BehaviorTree>
-            </root>
-        )";
-        
-        tree_ = factory_.createTreeFromText(xml_text);
-        RCLCPP_INFO(get_logger(), "✅ Árbol por defecto cargado");
     }
 }
 
-// =================================================================
-// TICK TREE
-// =================================================================
+/**
+ * @brief Ejecuta un tick en el árbol de comportamiento.
+ *
+ * Realiza logging periódico si está en modo debug.
+ */
 void TiagoBTNode::tickTree()
 {
     if (tree_.rootNode()) {
@@ -267,40 +232,40 @@ void TiagoBTNode::tickTree()
     }
 }
 
-// =================================================================
-// INITIALIZE BLACKBOARD
-// =================================================================
+/**
+ * @brief Inicializa el blackboard del árbol de comportamiento con valores por defecto.
+ */
 void TiagoBTNode::initializeBlackboard()
 {
     RCLCPP_INFO(get_logger(), "🧠 Inicializando blackboard...");
-    
-    // Engagement state
+
+    // Estados de compromiso
     tree_.blackboard_stack.front()->set("engagement_level", 0);
     tree_.blackboard_stack.front()->set("engagement_active", false);
     tree_.blackboard_stack.front()->set("previous_engagement_level", 0);
-    
-    // Voice detection
+
+    // Detección de voz
     tree_.blackboard_stack.front()->set("voice_detected", false);
     tree_.blackboard_stack.front()->set("voice_direction", 0);
-    
-    // Navigation state
+
+    // Estado de navegación
     tree_.blackboard_stack.front()->set("navigation_paused", false);
     tree_.blackboard_stack.front()->set("waypoint_reached", false);
-    
-    // Speech flags
+
+    // Flags de voz
     tree_.blackboard_stack.front()->set("greeting_spoken", false);
     
     RCLCPP_INFO(get_logger(), "✅ Blackboard inicializado");
 }
 
-// =================================================================
-// SETUP SUBSCRIPTIONS
-// =================================================================
+/**
+ * @brief Configura las suscripciones ROS2 necesarias para engagement, voz y dirección de voz.
+ */
 void TiagoBTNode::setupSubscriptions()
 {
     RCLCPP_INFO(get_logger(), "📡 Configurando subscripciones...");
     
-    // Engagement level subscription
+    // Suscripción al nivel de compromiso
     engagement_sub_ = create_subscription<std_msgs::msg::Int32>(
         "/engagement/general_status", 10,
         [this](const std_msgs::msg::Int32::SharedPtr msg) {
@@ -320,6 +285,8 @@ void TiagoBTNode::setupSubscriptions()
         [this](const std_msgs::msg::String::SharedPtr msg) {
             std::string texto = msg->data;
             bool detected = texto.find("hola") != std::string::npos ||
+                            texto.find("tiago") != std::string::npos ||
+                            texto.find("thiago") != std::string::npos ||
                             texto.find("ayuda") != std::string::npos;
             tree_.blackboard_stack.front()->set("voice_detected", detected);
     
@@ -330,7 +297,7 @@ void TiagoBTNode::setupSubscriptions()
             }
         });
     
-    // Voice direction subscription
+    // Suscripción a la dirección de voz
     voice_direction_sub_ = create_subscription<std_msgs::msg::Int32>(
         "/voice_direction", 10,
         [this](const std_msgs::msg::Int32::SharedPtr msg) {
@@ -351,9 +318,11 @@ void TiagoBTNode::setupSubscriptions()
     RCLCPP_INFO(get_logger(), "✅ Subscripciones configuradas");
 }
 
-// =================================================================
-// CONDITION FUNCTIONS
-// =================================================================
+/**
+ * @brief Verifica si la persona está comprometida (engaged).
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::checkPersonEngaged(BT::TreeNode& /*self*/)
 {
     int engagement_level = 0;
@@ -366,6 +335,11 @@ BT::NodeStatus TiagoBTNode::checkPersonEngaged(BT::TreeNode& /*self*/)
     return BT::NodeStatus::FAILURE;
 }
 
+/**
+ * @brief Verifica si se ha detectado voz.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::checkVoiceDetected(BT::TreeNode& /*self*/)
 {
     bool voice_detected = false;
@@ -375,6 +349,11 @@ BT::NodeStatus TiagoBTNode::checkVoiceDetected(BT::TreeNode& /*self*/)
     return voice_detected ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
 
+/**
+ * @brief Verifica si la navegación está permitida.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::checkNavigationAllowed(BT::TreeNode& /*self*/)
 {
     int engagement_level = 0;
@@ -396,8 +375,11 @@ BT::NodeStatus TiagoBTNode::checkNavigationAllowed(BT::TreeNode& /*self*/)
     return BT::NodeStatus::SUCCESS;
 }
 
-
-//NO VAAAAA pongo greeting_spoken a false en nueva entrada engagement
+/**
+ * @brief Verifica si el engagement está terminando.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::checkEngagementEnding(BT::TreeNode& /*self*/)
 {
     int engagement_level = 0;
@@ -413,17 +395,24 @@ BT::NodeStatus TiagoBTNode::checkEngagementEnding(BT::TreeNode& /*self*/)
     return BT::NodeStatus::FAILURE;
 }
 
+/**
+ * @brief Verifica si el estado de engagement está activo.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::isEngagementActive(BT::TreeNode& /*self*/)
 {
     bool engagement_active = false;
     tree_.blackboard_stack.front()->get("engagement_active", engagement_active);
     
-
-
-    
     return engagement_active ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
 
+/**
+ * @brief Verifica si el estado de engagement NO está activo.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::isNotEngagementActive(BT::TreeNode& /*self*/)
 {
     bool engagement_active = false;
@@ -431,11 +420,11 @@ BT::NodeStatus TiagoBTNode::isNotEngagementActive(BT::TreeNode& /*self*/)
     return !engagement_active ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
 }
 
-
-// =================================================================
-// ACTION FUNCTIONS - ENGAGEMENT
-// =================================================================
-
+/**
+ * @brief Activa el estado de engagement y cancela navegación si está en curso.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::setEngagementActive(BT::TreeNode& /*self*/)
 {
     bool nav_in_progress = false;
@@ -456,6 +445,11 @@ BT::NodeStatus TiagoBTNode::setEngagementActive(BT::TreeNode& /*self*/)
     return BT::NodeStatus::SUCCESS;
 }
 
+/**
+ * @brief Desactiva el estado de engagement y resetea flags de voz y saludo.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::setEngagementInactive(BT::TreeNode& /*self*/)
 {
     tree_.blackboard_stack.front()->set("engagement_active", false);
@@ -470,11 +464,11 @@ BT::NodeStatus TiagoBTNode::setEngagementInactive(BT::TreeNode& /*self*/)
     return BT::NodeStatus::SUCCESS;
 }
 
-// =================================================================
-// ACTION FUNCTIONS - SPEECH
-// =================================================================
-
-// Saludo al entrar en engagement
+/**
+ * @brief Acción para decir un saludo una sola vez al entrar en engagement.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::speakGreetingOnce(BT::TreeNode& /*self*/)
 {
     bool greeting_spoken = false;
@@ -492,20 +486,21 @@ BT::NodeStatus TiagoBTNode::speakGreetingOnce(BT::TreeNode& /*self*/)
     return BT::NodeStatus::SUCCESS;
 }
 
-// =================================================================
-// ACTION FUNCTIONS - NAVIGATION
-// =================================================================
-
+/**
+ * @brief Acción para girar hacia la dirección de la voz detectada.
+ * Cancela navegación si está en curso y envía goal de giro.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::turnToVoiceDirection(BT::TreeNode& /*self*/)
 {
-    // Si está navegando, cancela la navegación antes de girar
     bool navigation_in_progress = false;
     tree_.blackboard_stack.front()->get("navigation_in_progress", navigation_in_progress);
 
     bool turning_in_progress = false;
     tree_.blackboard_stack.front()->get("turning_to_voice_in_progress", turning_in_progress);
 
-    // Si hay navegación en curso, cancela y espera al siguiente tick
+    // Si hay navegación en curso, cancela navegación y espera al siguiente tick
     if (navigation_in_progress) {
         RCLCPP_INFO(get_logger(), "🛑 Cancelando navegación para girar hacia la voz");
         nav2_client_->async_cancel_all_goals();
@@ -519,7 +514,6 @@ BT::NodeStatus TiagoBTNode::turnToVoiceDirection(BT::TreeNode& /*self*/)
         return BT::NodeStatus::FAILURE;
     }
 
-    // Prepara el goal de giro
     int voice_direction = 0;
     tree_.blackboard_stack.front()->get("voice_direction", voice_direction);
 
@@ -537,7 +531,6 @@ BT::NodeStatus TiagoBTNode::turnToVoiceDirection(BT::TreeNode& /*self*/)
 
     tree_.blackboard_stack.front()->set("voice_detected", false);
 
-    // Prepara el goal Nav2 (igual que en navegación normal)
     auto current_pose = getCurrentPose();
     double voice_yaw_rad = (voice_direction * M_PI) / 180.0;
     double current_yaw = getYawFromQuaternion(current_pose.pose.orientation);
@@ -578,9 +571,13 @@ BT::NodeStatus TiagoBTNode::turnToVoiceDirection(BT::TreeNode& /*self*/)
     return BT::NodeStatus::FAILURE;
 }
 
+/**
+ * @brief Acción para navegar hacia el siguiente waypoint.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::navigateToWaypoint(BT::TreeNode& /*self*/)
 {
-    // Lee el estado de navegación desde la blackboard
     bool navigation_in_progress = false;
     tree_.blackboard_stack.front()->get("navigation_in_progress", navigation_in_progress);
 
@@ -631,10 +628,11 @@ BT::NodeStatus TiagoBTNode::navigateToWaypoint(BT::TreeNode& /*self*/)
     return BT::NodeStatus::SUCCESS;
 }
 
-// =================================================================
-// ACTION FUNCTIONS - LED & LOGGING
-// =================================================================
-
+/**
+ * @brief Acción para registrar el estado de engagement en el log.
+ * @param self Nodo del árbol de comportamiento.
+ * @return Estado del nodo BT.
+ */
 BT::NodeStatus TiagoBTNode::logEngagementState(BT::TreeNode& /*self*/)
 {
     int engagement_level = 0;
@@ -649,9 +647,9 @@ BT::NodeStatus TiagoBTNode::logEngagementState(BT::TreeNode& /*self*/)
     return BT::NodeStatus::SUCCESS;
 }
 
-// =================================================================
-// HELPER FUNCTIONS
-// =================================================================
+/**
+ * @brief Inicializa los waypoints de navegación.
+ */
 void TiagoBTNode::initializeWaypoints()
 {
     waypoints_.clear();
@@ -683,6 +681,10 @@ void TiagoBTNode::initializeWaypoints()
     RCLCPP_INFO(get_logger(), "🗺️ Waypoints inicializados: %zu puntos", waypoints_.size());
 }
 
+/**
+ * @brief Obtiene la pose actual del robot usando TF2.
+ * @return Pose actual.
+ */
 geometry_msgs::msg::PoseStamped TiagoBTNode::getCurrentPose()
 {
     geometry_msgs::msg::PoseStamped current_pose;
@@ -712,6 +714,11 @@ geometry_msgs::msg::PoseStamped TiagoBTNode::getCurrentPose()
     return current_pose;
 }
 
+/**
+ * @brief Crea un quaternion a partir de un ángulo yaw.
+ * @param yaw Ángulo en radianes.
+ * @return Quaternion resultante.
+ */
 geometry_msgs::msg::Quaternion TiagoBTNode::createQuaternionFromYaw(double yaw)
 {
     tf2::Quaternion q;
@@ -726,6 +733,11 @@ geometry_msgs::msg::Quaternion TiagoBTNode::createQuaternionFromYaw(double yaw)
     return quat_msg;
 }
 
+/**
+ * @brief Obtiene el ángulo yaw de un quaternion.
+ * @param quat Quaternion de entrada.
+ * @return Ángulo yaw en radianes.
+ */
 double TiagoBTNode::getYawFromQuaternion(const geometry_msgs::msg::Quaternion& quat)
 {
     tf2::Quaternion tf_quat(quat.x, quat.y, quat.z, quat.w);

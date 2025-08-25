@@ -1,39 +1,51 @@
 <root BTCPP_format="4">
+    <!--
+        TiagoMainTree: Árbol principal de comportamiento para el robot Tiago.
+        Utiliza un nodo Fallback (selector) para priorizar las acciones de engagement,
+        navegación y voz, siguiendo el orden de prioridad definido.
+    -->
     <BehaviorTree ID="TiagoMainTree">
         <Fallback name="MainSelector">
-
-            <!-- Engagement: máxima prioridad -->
+            <!--
+                EngagementHandler: Secuencia que gestiona el inicio del engagement.
+                Prioridad máxima. Si la persona está comprometida, activa el engagement
+                y envía un saludo.
+            -->
             <Sequence name="EngagementHandler">
                 <IsPersonEngaged/>
                 <SetEngagementActive/>
                 <SpeakGreetingOnce/>
             </Sequence>
 
-            <!-- Fin de engagement -->
+            <!--
+                EndEngagementHandler: Secuencia que gestiona el fin del engagement.
+                Si se detecta el final del engagement, lo desactiva.
+            -->            
             <Sequence name="EndEngagementHandler">
                 <IsEngagementEnding/>
                 <SetEngagementInactive/>
             </Sequence>
 
+            <!--
+                NavigationLoop: Secuencia de navegación.
+                Solo se ejecuta si no hay engagement activo y la navegación está permitida.
+                Navega hacia el siguiente waypoint.
+            -->
             <Sequence name="NavigationLoop">
                 <IsNotEngagementActive/>
                 <IsNavigationAllowed/>
                 <NavigateToWaypoint/>
-                <AlwaysSuccess/>
             </Sequence>
 
-            <!-- Nueva secuencia para escuchar y girar si oye "hola" -->
+            <!--
+                VoiceInteractionLoop: Secuencia para interacción por voz.
+                Solo se ejecuta si no hay engagement activo y se detecta voz.
+                El robot gira hacia la dirección de la voz.
+            -->
             <Sequence name="VoiceInteractionLoop">
                 <IsNotEngagementActive/>
                 <IsVoiceDetected/>        
                 <TurnToVoiceDirection/>    
-                <AlwaysSuccess/>
-            </Sequence>
-
-          
-            <!-- Idle -->
-            <Sequence name="IdleHandler">
-                <AlwaysSuccess/>
             </Sequence>
         </Fallback>
     </BehaviorTree>

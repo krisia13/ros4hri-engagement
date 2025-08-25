@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+"""Nodo ROS2 para síntesis de voz (TTS) en función de comandos recibidos.
+
+Este nodo recibe comandos de texto desde el topic '/speech_text' y utiliza el sistema
+de texto a voz (TTS) del robot TiAGo para hablar frases predefinidas o texto arbitrario.
+Incluye control de cooldown para evitar repeticiones rápidas.
+
+Attributes:
+    TTSEngagementNode (Node): Nodo principal que gestiona la lógica de TTS.
+"""
+
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
@@ -9,7 +19,13 @@ import random
 import time
 
 class TTSEngagementNode(Node):
+    """Nodo que gestiona la síntesis de voz del robot TiAGo según comandos recibidos."""
+
     def __init__(self):
+        """Inicializa el nodo TTSEngagementNode.
+
+        Configura el cliente de acción TTS, parámetros, frases y suscripciones.
+        """
         super().__init__('tts_engagement_node')
         
         # Cliente de acción para TTS del TiAGo
@@ -19,19 +35,15 @@ class TTSEngagementNode(Node):
         self.last_speech_time = 0
         self.speech_cooldown = 3.0  # 3 segundos entre comandos
 
-        # =================================================================
-        # SUSCRIPCIÓN ÚNICA: Solo comandos del BT
-        # =================================================================
+        # Suscripción al topic de comandos de voz del BT
         self.create_subscription(
             String,
-            '/speech_text',  # Topic que publica el BT
+            '/speech_text', 
             self.bt_speech_command_callback,
             10
         )
         
-        # =================================================================
-        # FRASES ESPECÍFICAS PARA COMANDOS BT
-        # =================================================================
+        # Diccionario de frases predefinidas para comandos específicos
         self.bt_phrases = {
             'ENGAGEMENT_GREETING': [
                 "Hello! I see you looking at me. How can I help you today?",
@@ -68,9 +80,7 @@ class TTSEngagementNode(Node):
             ]
         }
 
-        # =================================================================
-        # PARÁMETROS TTS
-        # =================================================================
+        # Parámetros configurables para TTS
         self.declare_parameter('speech_cooldown', 3.0)
         self.declare_parameter('volume', 0.7)
         self.declare_parameter('rate', 120)
@@ -89,24 +99,28 @@ class TTSEngagementNode(Node):
         self.get_logger().info(f'📝 Comandos disponibles: {list(self.bt_phrases.keys())}')
 
     def bt_speech_command_callback(self, msg):
-        """Procesa SOLO comandos de habla del BT"""
+        """Procesa comandos de voz recibidos desde el topic '/speech_text'.
+
+        Args:
+            msg (String): Mensaje recibido con el comando de voz.
+        """
         command = msg.data.strip()
         current_time = time.time()
         
-        # Control de cooldown
+        # Control de cooldown para evitar repeticiones rápidas
         if current_time - self.last_speech_time < self.speech_cooldown:
             self.get_logger().warn(f'🚫 Cooldown activo - ignorando comando: "{command}"')
             return
         
         # Procesar comando
         if command in self.bt_phrases:
-            # Comando predefinido - seleccionar frase aleatoria
+            # Comando predefinido - selecciona frase aleatoria
             phrase = random.choice(self.bt_phrases[command])
             self.speak(phrase)
             self.get_logger().info(f'🤖 BT command "{command}": "{phrase}"')
             
         elif command.startswith('SAY:'):
-            # Comando directo - hablar el texto después de "SAY:"
+            # Comando directo - habla el texto después de "SAY:"
             text = command[4:].strip()
             if text:
                 self.speak(text)
@@ -115,12 +129,16 @@ class TTSEngagementNode(Node):
                 self.get_logger().warn('⚠️ Comando SAY: vacío')
                 
         else:
-            # Hablar directamente el texto completo
+            # Habla el texto literal recibido
             self.speak(command)
             self.get_logger().info(f'🔤 BT literal speech: "{command}"')
 
     def speak(self, text):
-        """Envía texto al TTS del TiAGo"""
+        """Envía texto al sistema TTS del TiAGo para que lo pronuncie.
+
+        Args:
+            text (str): Texto a pronunciar.
+        """
         if not text or not text.strip():
             self.get_logger().warn('⚠️ Texto vacío - no se puede hablar')
             return
@@ -140,7 +158,7 @@ class TTSEngagementNode(Node):
         goal_msg.config.gender = self.gender
         goal_msg.config.tool = int(self.tool)
         
-        # Enviar la acción
+        # Enviar la acción al servidor TTS
         future = self._tts_client.send_goal_async(goal_msg)
         future.add_done_callback(self.tts_goal_response_callback)
         
@@ -150,7 +168,11 @@ class TTSEngagementNode(Node):
         self.get_logger().debug(f'🚀 Enviando TTS: "{text}"')
 
     def tts_goal_response_callback(self, future):
-        """Callback para respuesta del servidor TTS"""
+        """Callback para la respuesta del servidor TTS tras enviar el goal.
+
+        Args:
+            future: Futuro con el resultado de la petición de goal.
+        """
         try:
             goal_handle = future.result()
             if not goal_handle.accepted:
@@ -159,7 +181,7 @@ class TTSEngagementNode(Node):
             
             self.get_logger().debug('✅ TTS goal aceptado - TiAGo hablando...')
             
-            # Obtener resultado
+            # Obtener resultado de la acción TTS
             result_future = goal_handle.get_result_async()
             result_future.add_done_callback(self.tts_result_callback)
             
@@ -167,7 +189,11 @@ class TTSEngagementNode(Node):
             self.get_logger().error(f'❌ Error en TTS goal response: {e}')
 
     def tts_result_callback(self, future):
-        """Callback para resultado de la acción TTS"""
+        """Callback para el resultado final de la acción TTS.
+
+        Args:
+            future: Futuro con el resultado de la acción TTS.
+        """
         try:
             result = future.result().result
             self.get_logger().debug('✅ TTS completado exitosamente')
@@ -175,6 +201,11 @@ class TTSEngagementNode(Node):
             self.get_logger().error(f'❌ Error en TTS result: {e}')
 
 def main(args=None):
+    """Función principal para iniciar el nodo TTSEngagementNode.
+
+    Args:
+        args (list, optional): Argumentos de inicialización ROS2.
+    """
     rclpy.init(args=args)
     node = TTSEngagementNode()
     
